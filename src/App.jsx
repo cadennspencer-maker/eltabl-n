@@ -1078,7 +1078,6 @@ function UpcomingList({ events, onClick }) {
                 </div>
                 <div className="up-meta">
                   <div className="up-cat">{ev.category.toLowerCase()}</div>
-                  <div className="up-spots">{ev.spotsLeft} plazas</div>
                   <div className="up-arr">→</div>
                 </div>
               </div>
@@ -1173,7 +1172,6 @@ function DayPanel({ day, events, onClose, onClick }) {
               <div className="dp-name">{e.title}</div>
               <div className="dp-loc-s">{e.location}</div>
             </div>
-            <div className="dp-spts">{e.spotsLeft} plazas</div>
           </div>
         ))
       }
@@ -1183,7 +1181,6 @@ function DayPanel({ day, events, onClose, onClick }) {
 
 // ─── EVENT DETAIL ─────────────────────────────────────────────────────────────
 function EventDetail({ ev, onClose, cu, onLogin, onJoin }) {
-  const pct = Math.round((1 - ev.spotsLeft/ev.spots)*100);
   const contactHref = ev.contactMethod === "whatsapp"
     ? `https://wa.me/${ev.contactValue.replace(/\D/g,"")}`
     : `mailto:${ev.contactValue}`;
@@ -1221,10 +1218,6 @@ function EventDetail({ ev, onClose, cu, onLogin, onJoin }) {
             )}
           </div>
           <div className="m-desc">{ev.description}</div>
-          <div className="m-spots">
-            <div className="m-spots-row"><span className="m-spots-lbl">plazas disponibles</span><span className="m-spots-val">{ev.spotsLeft} / {ev.spots}</span></div>
-            <div className="m-track"><div className="m-fill" style={{width:`${pct}%`}}/></div>
-          </div>
           <div className="m-actions">
             {cu
               ? <button className="m-btn-p" onClick={onJoin}>apuntarme al evento →</button>
@@ -1334,10 +1327,6 @@ function SubmitPage({ cu, onBack, onSubmit }) {
               <select value={f.category} onChange={e=>sf("category",e.target.value)}>
                 {CATEGORIES.filter(c=>c!=="Todos").map(c=><option key={c}>{c}</option>)}
               </select>
-            </div>
-            <div className="sf-field">
-              <label>plazas disponibles</label>
-              <input type="number" min="1" value={f.spots} onChange={e=>sf("spots",Number(e.target.value))}/>
             </div>
           </div>
           <div className="sf-grid2">
@@ -1499,7 +1488,6 @@ function AuthModal({ tab, setTab, users, onClose, onLogin, onReg }) {
           </>}
 
           {err && <div className="f-err">{err}</div>}
-          {tab === "login" && <div className="f-hint">demo admin: admin@eltablon.es / admin123</div>}
 
           <div style={{marginTop:20}}>
             <button className="btn-ink" style={{width:"100%",opacity:busy?.6:1}} onClick={submit} disabled={busy}>
