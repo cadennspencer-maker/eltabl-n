@@ -912,7 +912,7 @@ export default function App() {
       <footer>
         <span className="f-name">El Tablón / Voluntariado Madrid</span>
         <div className="f-links">
-          <a href="#">contacto</a>
+          <a href="mailto:hola@eltablon.org">contacto · hola@eltablon.org</a>
           <a href="#">privacidad</a>
           <a href="#">© 2026</a>
         </div>
