@@ -1581,7 +1581,7 @@ function AdminPanel({ events, users, tab, setTab, onApprove, onDeny, onDelete })
   return (
     <div>
       <div className="page-title">administración</div>
-      <div className="page-sub">El Tablón / panel de control · {ADMIN_EMAIL}</div>
+      <div className="page-sub">El Tablón / panel de control</div>
       <div className="stat-row">
         {[["total",events.length],["pendientes",pending.length],["publicados",events.filter(e=>e.status==="approved").length],["usuarios",users.length]].map(([l,n])=>(
           <div key={l} className="stat-box"><div className="stat-n">{n}</div><div className="stat-l">{l}</div></div>
