@@ -32,6 +32,7 @@ const mapEvent = (e) => e ? ({
   spots: e.spots, spotsLeft: e.spots_left,
   status: e.status, submittedBy: e.submitted_by,
   approvedBy: e.approved_by,
+  submissionRef: e.submission_ref || null,
 }) : null;
 
 const mapUser = (u) => u ? ({
@@ -121,7 +122,7 @@ body { font-family:var(--mono); background:var(--white); color:var(--ink); min-h
 .main-hdr { padding:20px 32px 16px; border-bottom:1px solid var(--rule); display:flex; align-items:baseline; justify-content:space-between; }
 .main-title { font-family:var(--serif); font-size:1.5rem; font-weight:400; font-style:italic; color:var(--ink); }
 .main-sub { font-size:.62rem; color:var(--light); letter-spacing:.04em; }
-.main-desc { font-size:.66rem; color:var(--mid); padding:14px 32px; border-bottom:1px solid var(--rule2); line-height:1.8; }
+.main-desc { font-size:.82rem; color:var(--mid); padding:14px 32px; border-bottom:1px solid var(--rule2); line-height:1.8; }
 
 /* UPCOMING LIST */
 .up-month-hdr { padding:12px 32px 8px; font-size:.58rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--light); border-bottom:1px solid var(--rule2); }
@@ -135,7 +136,7 @@ body { font-family:var(--mono); background:var(--white); color:var(--ink); min-h
 .up-ttl { font-family:var(--serif); font-size:1.05rem; font-style:italic; color:var(--ink); line-height:1.25; margin-bottom:2px; }
 .up-loc { font-size:.62rem; color:var(--mid); }
 .up-meta { padding:16px 32px 16px 0; display:flex; flex-direction:column; align-items:flex-end; gap:5px; }
-.up-cat { font-size:.56rem; color:var(--light); letter-spacing:.08em; }
+.up-cat { font-size:.66rem; color:var(--light); letter-spacing:.06em; }
 .up-spots { font-size:.6rem; color:var(--mid); }
 .up-arr { font-size:.75rem; color:var(--xlight); }
 .up-empty { padding:40px 32px; font-size:.66rem; color:var(--light); }
@@ -633,6 +634,12 @@ export default function App() {
   const [selDay, setSelDay]         = useState(null);
   const [loading, setLoading]       = useState(true);
 
+  useEffect(() => {
+    const handler = () => setPage("status");
+    document.addEventListener("goStatus", handler);
+    return () => document.removeEventListener("goStatus", handler);
+  }, []);
+
   // ── Load everything on mount ──
   useEffect(() => {
     const load = async () => {
@@ -679,6 +686,7 @@ export default function App() {
       status: "pending",
       submitted_by: cu ? cu.id : "anon",
       approved_by: null,
+      submission_ref: data.submissionRef || null,
     };
     const result = await sb("events", { method: "POST", body: JSON.stringify(row) });
     if (result && result[0]) setEvents(ev => [...ev, mapEvent(result[0])]);
@@ -834,6 +842,10 @@ Entra al panel de administración para aprobar o rechazar este evento.
         </div>
       )}
 
+      {page === "status" && (
+        <StatusPage events={events} onBack={() => setPage("home")} />
+      )}
+
       {page === "submit" && (
         <SubmitPage cu={cu} onBack={() => setPage("home")} onSubmit={async data => {
           await handleSubmit(data); setPage("home"); toast("¡propuesta enviada! revisa tu correo.");
@@ -900,8 +912,9 @@ function Hdr({ cu, page, setPage, pendingCount, onLogin, onLogout, onAdd }) {
   const go = (p) => { setPage(p); close(); };
 
   const navItems = [
-    { key:"home",       label:"eventos",        icon:"◈" },
-    { key:"newsletter", label:"boletín",         icon:"◉" },
+    { key:"home",       label:"eventos",          icon:"◈" },
+    { key:"newsletter", label:"boletín",           icon:"◉" },
+    { key:"status",     label:"estado propuesta",  icon:"◎" },
     ...(cu ? [{ key:"my-events", label:"mis eventos", icon:"◎" }] : []),
     ...(cu?.role==="admin" ? [{ key:"admin", label:`admin${pendingCount>0?` (${pendingCount})`:""}`, icon:"◆" }] : []),
   ];
@@ -918,6 +931,7 @@ function Hdr({ cu, page, setPage, pendingCount, onLogin, onLogout, onAdd }) {
           <nav className="hdr-nav">
             <button className={`hn ${page==="home"?"act":""}`} onClick={() => setPage("home")}>eventos</button>
             <button className={`hn ${page==="newsletter"?"act":""}`} onClick={() => setPage("newsletter")}>boletín</button>
+            <button className={`hn ${page==="status"?"act":""}`} onClick={() => setPage("status")}>estado</button>
             {cu && <button className={`hn ${page==="my-events"?"act":""}`} onClick={() => setPage("my-events")}>mis eventos</button>}
             {cu?.role==="admin" && (
               <button className={`hn ${page==="admin"?"act":""}`} onClick={() => setPage("admin")}>
@@ -1268,12 +1282,13 @@ function SubmitPage({ cu, onBack, onSubmit }) {
           <div className="ss-icon">—</div>
           <div className="ss-title">Propuesta recibida</div>
           <div className="ss-body">
-            Gracias por proponer un evento en El Tablón. Tu solicitud ha sido enviada al equipo de administración y será revisada en los próximos días.<br /><br />
-            También debería haberse abierto tu cliente de correo con un resumen para el administrador. Si no, el equipo puede encontrar tu propuesta en el panel de administración.
+            Gracias por proponer un evento en El Tablón. Tu solicitud será revisada en los próximos días.<br /><br />
+            Guarda tu número de referencia — puedes usarlo para consultar el estado de tu propuesta en cualquier momento.
           </div>
           <div className="ss-ref">ref. {refNum}</div>
-          <div>
-            <button className="btn-ink" onClick={onBack}>← volver a los eventos</button>
+          <div style={{display:"flex",flexDirection:"column",gap:10,alignItems:"flex-start"}}>
+            <button className="btn-ink" onClick={() => { onBack(); setTimeout(()=>document.dispatchEvent(new CustomEvent("goStatus")),50); }}>comprobar estado →</button>
+            <button className="btn-line" onClick={onBack}>← volver a los eventos</button>
           </div>
         </div>
       </div>
@@ -1494,6 +1509,79 @@ function AuthModal({ tab, setTab, users, onClose, onLogin, onReg }) {
               {busy ? "..." : tab==="login" ? "entrar →" : "crear cuenta →"}
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── STATUS CHECKER ───────────────────────────────────────────────────────────
+function StatusPage({ events, onBack }) {
+  const [ref, setRef] = useState("");
+  const [result, setResult] = useState(null);
+  const [searched, setSearched] = useState(false);
+
+  const check = () => {
+    const clean = ref.trim().toUpperCase();
+    const ev = events.find(e => e.submissionRef && e.submissionRef.toUpperCase() === clean);
+    setResult(ev || null);
+    setSearched(true);
+  };
+
+  const statusInfo = {
+    pending:  { label: "en revisión",  desc: "Tu propuesta ha sido recibida y está siendo revisada por el equipo de El Tablón. Te contactaremos si necesitamos más información.", color: "var(--mid)" },
+    approved: { label: "publicado",    desc: "¡Enhorabuena! Tu evento ha sido aprobado y ya está visible en el tablón.", color: "var(--green)" },
+    denied:   { label: "no publicado", desc: "Tu propuesta no ha sido publicada en esta ocasión. Si tienes dudas, contacta con el equipo.", color: "var(--accent)" },
+  };
+
+  return (
+    <div className="submit-page su">
+      <div className="submit-info" />
+      <div style={{padding:"48px 48px 80px",maxWidth:540}}>
+        <div style={{fontFamily:"var(--mono)",fontSize:".6rem",color:"var(--light)",letterSpacing:".1em",marginBottom:24}}>comprobar estado</div>
+        <div style={{fontFamily:"var(--serif)",fontSize:"1.5rem",fontStyle:"italic",marginBottom:8,lineHeight:1.2}}>¿Cómo va tu propuesta?</div>
+        <div style={{fontFamily:"var(--mono)",fontSize:".65rem",color:"var(--mid)",marginBottom:32,lineHeight:1.7}}>
+          Introduce el número de referencia que recibiste al enviar tu evento (formato ET-XXXXX).
+        </div>
+
+        <div style={{display:"flex",gap:8,marginBottom:32}}>
+          <input
+            type="text"
+            value={ref}
+            onChange={e => { setRef(e.target.value); setSearched(false); }}
+            onKeyDown={e => e.key === "Enter" && check()}
+            placeholder="ET-12345"
+            style={{fontFamily:"var(--mono)",fontSize:".8rem",letterSpacing:".1em",border:"none",borderBottom:"2px solid var(--ink)",padding:"8px 0",flex:1,outline:"none",background:"none",color:"var(--ink)"}}
+          />
+          <button className="btn-ink" onClick={check}>buscar →</button>
+        </div>
+
+        {searched && !result && (
+          <div style={{fontFamily:"var(--mono)",fontSize:".65rem",color:"var(--accent)",letterSpacing:".04em",padding:"16px 0",borderTop:"1px solid var(--rule)"}}>
+            — no se ha encontrado ninguna propuesta con esa referencia.
+          </div>
+        )}
+
+        {searched && result && (() => {
+          const s = statusInfo[result.status] || statusInfo.pending;
+          const d = new Date(result.date+"T12:00:00");
+          const dateStr = d.toLocaleDateString("es-ES",{day:"numeric",month:"long",year:"numeric"});
+          return (
+            <div style={{borderTop:"1px solid var(--rule)",paddingTop:24}}>
+              <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+                <div style={{fontFamily:"var(--mono)",fontSize:".6rem",letterSpacing:".08em",color:"var(--light)"}}>estado</div>
+                <div style={{fontFamily:"var(--mono)",fontSize:".7rem",fontWeight:700,color:s.color,letterSpacing:".06em"}}>{s.label}</div>
+              </div>
+              <div style={{fontFamily:"var(--serif)",fontSize:"1.1rem",fontStyle:"italic",marginBottom:6}}>{result.title}</div>
+              <div style={{fontFamily:"var(--mono)",fontSize:".62rem",color:"var(--mid)",marginBottom:4}}>{dateStr} · {result.location}</div>
+              <div style={{fontFamily:"var(--mono)",fontSize:".62rem",color:"var(--light)",marginBottom:20}}>{result.organizer}</div>
+              <div style={{fontFamily:"var(--mono)",fontSize:".65rem",color:"var(--mid)",lineHeight:1.7,borderTop:"1px solid var(--rule2)",paddingTop:16}}>{s.desc}</div>
+            </div>
+          );
+        })()}
+
+        <div style={{marginTop:40}}>
+          <button className="btn-line" onClick={onBack}>← volver a los eventos</button>
         </div>
       </div>
     </div>
