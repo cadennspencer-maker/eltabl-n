@@ -144,7 +144,8 @@ body { font-family:var(--mono); background:var(--white); color:var(--ink); min-h
 .up-info { padding:16px 20px 16px 24px; }
 .up-time { font-size:.6rem; color:var(--light); letter-spacing:.08em; margin-bottom:3px; }
 .up-ttl { font-family:var(--serif); font-size:1.05rem; font-style:italic; color:var(--ink); line-height:1.25; margin-bottom:2px; }
-.up-loc { font-size:.62rem; color:var(--mid); }
+.up-loc { font-size:.62rem; color:var(--mid); text-decoration:none; }
+.up-loc:hover { color:var(--ink); text-decoration:underline; }
 .up-meta { padding:16px 32px 16px 0; display:flex; flex-direction:column; align-items:flex-end; gap:5px; }
 .up-cat { font-size:.66rem; color:var(--light); letter-spacing:.06em; }
 .up-spots { font-size:.6rem; color:var(--mid); }
@@ -165,7 +166,8 @@ body { font-family:var(--mono); background:var(--white); color:var(--ink); min-h
 .ecard-body { padding:16px 20px 18px; flex:1; display:flex; flex-direction:column; }
 .ecard-date { font-size:.58rem; color:var(--light); letter-spacing:.08em; margin-bottom:6px; }
 .ecard-title { font-family:var(--serif); font-size:1.05rem; font-style:italic; color:var(--ink); line-height:1.3; margin-bottom:6px; flex:1; }
-.ecard-loc { font-size:.62rem; color:var(--mid); margin-bottom:8px; }
+.ecard-loc { font-size:.62rem; color:var(--mid); margin-bottom:8px; text-decoration:none; }
+.ecard-loc:hover { color:var(--ink); text-decoration:underline; }
 .ecard-foot { display:flex; align-items:center; justify-content:space-between; margin-top:auto; }
 .ecard-org { font-size:.58rem; color:var(--light); }
 .ecard-cat { font-size:.55rem; color:var(--light); letter-spacing:.08em; text-transform:uppercase; border:1px solid var(--rule); padding:2px 6px; }
@@ -208,7 +210,8 @@ body { font-family:var(--mono); background:var(--white); color:var(--ink); min-h
 .dp-body { padding:10px 16px; }
 .dp-time { font-size:.56rem; color:var(--light); letter-spacing:.08em; margin-bottom:2px; }
 .dp-name { font-family:var(--serif); font-style:italic; font-size:.92rem; color:var(--ink); line-height:1.25; }
-.dp-loc-s { font-size:.6rem; color:var(--mid); margin-top:2px; }
+.dp-loc-s { font-size:.6rem; color:var(--mid); margin-top:2px; text-decoration:none; }
+.dp-loc-s:hover { color:var(--ink); text-decoration:underline; }
 .dp-spts { font-size:.58rem; color:var(--light); padding:0 24px 0 0; }
 .dp-empty { padding:20px 32px; font-size:.64rem; color:var(--light); }
 
@@ -835,7 +838,7 @@ export default function App() {
 
       {page === "submit" && (
         <SubmitPage cu={cu} onBack={() => setPage("home")} onSubmit={async data => {
-          await handleSubmit(data); setPage("home"); toast("¡propuesta enviada! revisa tu correo.");
+          await handleSubmit(data);
         }} />
       )}
 
@@ -1075,7 +1078,7 @@ function UpcomingList({ events, onClick }) {
                 <div className="up-info">
                   <div className="up-time">{ev.time}</div>
                   <div className="up-ttl">{ev.title}</div>
-                  <div className="up-loc">{ev.location}</div>
+                  <a className="up-loc" href={`https://maps.google.com/?q=${encodeURIComponent(ev.location)}`} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()}>{ev.location}</a>
                 </div>
                 <div className="up-meta">
                   <div className="up-cat">{ev.category.toLowerCase()}</div>
@@ -1100,7 +1103,7 @@ function EventCard({ ev, onClick, delay }) {
       <div className="ecard-body">
         <div className="ecard-date">{fmtDate(ev.date)} · {ev.time}</div>
         <div className="ecard-title">{ev.title}</div>
-        <div className="ecard-loc">{ev.location}</div>
+        <a className="ecard-loc" href={`https://maps.google.com/?q=${encodeURIComponent(ev.location)}`} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()}>{ev.location}</a>
         <div className="ecard-foot">
           <span className="ecard-org">{ev.organizer}</span>
           <span className="ecard-cat">{ev.category.toLowerCase()}</span>
@@ -1171,7 +1174,7 @@ function DayPanel({ day, events, onClose, onClick }) {
             <div className="dp-body">
               <div className="dp-time">{e.time}</div>
               <div className="dp-name">{e.title}</div>
-              <div className="dp-loc-s">{e.location}</div>
+              <a className="dp-loc-s" href={`https://maps.google.com/?q=${encodeURIComponent(e.location)}`} target="_blank" rel="noopener noreferrer" onClick={ev=>ev.stopPropagation()}>{e.location}</a>
             </div>
           </div>
         ))
@@ -1198,12 +1201,12 @@ function EventDetail({ ev, onClose, cu, onLogin, onJoin }) {
           <div className="m-title">{ev.title}</div>
           <div className="m-meta">
             {[
-              ["fecha",    fmt(ev.date)],
-              ["hora",     ev.time],
-              ["lugar",    ev.location],
-              ["organiz.", ev.organizer],
-            ].map(([l,v]) => (
-              <div key={l} className="m-row"><div className="m-lbl">{l}</div><div className="m-val">{v}</div></div>
+              ["fecha",    fmt(ev.date), null],
+              ["hora",     ev.time, null],
+              ["lugar",    ev.location, `https://maps.google.com/?q=${encodeURIComponent(ev.location)}`],
+              ["organiz.", ev.organizer, null],
+            ].map(([l,v,href]) => (
+              <div key={l} className="m-row"><div className="m-lbl">{l}</div><div className="m-val">{href ? <a href={href} target="_blank" rel="noopener noreferrer">{v}</a> : v}</div></div>
             ))}
             {ev.contactValue && (
               <div className="m-row">
@@ -1251,13 +1254,17 @@ function SubmitPage({ cu, onBack, onSubmit }) {
   });
   const sf = (k,v) => setF(x=>({...x,[k]:v}));
 
-  const submit = () => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async () => {
     if (!f.title||!f.date||!f.location||!f.description||!f.organizer||!f.contactValue) {
       setErr("por favor completa todos los campos obligatorios (marcados con *).");
       return;
     }
     setErr("");
-    onSubmit({ ...f, organizerEmail: f.contactMethod==="email" ? f.contactValue : "", submissionRef: refNum });
+    setSubmitting(true);
+    await onSubmit({ ...f, organizerEmail: f.contactMethod==="email" ? f.contactValue : "", submissionRef: refNum });
+    setSubmitting(false);
     setDone(true);
   };
 
@@ -1413,7 +1420,7 @@ function SubmitPage({ cu, onBack, onSubmit }) {
         {/* SUBMIT */}
         {err && <div className="submit-err">{err}</div>}
         <div className="submit-actions">
-          <button className="btn-ink" onClick={submit}>enviar propuesta →</button>
+          <button className="btn-ink" onClick={submit} disabled={submitting}>{submitting ? "enviando..." : "enviar propuesta →"}</button>
           <button className="btn-line" onClick={onBack}>cancelar</button>
         </div>
         <div style={{marginTop:20,fontSize:".6rem",color:"var(--xlight)",lineHeight:1.7}}>
