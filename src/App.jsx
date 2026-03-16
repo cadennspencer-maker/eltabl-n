@@ -35,7 +35,8 @@ const sb = async (path, opts = {}) => {
 // map DB snake_case → app camelCase
 const mapEvent = (e) => e ? ({
   id: e.id, title: e.title, category: e.category,
-  date: e.date, time: e.time, location: e.location,
+  date: e.date, time: e.time, timeEnd: e.time_end || "",
+  location: e.location,
   description: e.description, organizer: e.organizer,
   contactMethod: e.contact_method, contactValue: e.contact_value,
   website: e.website || "", image: e.image || "",
@@ -121,7 +122,7 @@ body { font-family:var(--mono); background:var(--white); color:var(--ink); min-h
 .sb-search input { width:100%; font-family:var(--mono); font-size:.66rem; color:var(--ink); background:none; border:none; border-bottom:1px solid var(--rule); padding:4px 0; outline:none; letter-spacing:.02em; }
 .sb-search input::placeholder { color:var(--xlight); }
 .view-row { display:flex; padding:0 20px; }
-.vbtn { flex:1; font-family:var(--mono); font-size:.58rem; color:var(--light); background:none; border:1px solid var(--rule2); padding:5px 0; cursor:pointer; transition:all .15s; }
+.vbtn { flex:1; font-family:var(--mono); font-size:.54rem; color:var(--light); background:none; border:1px solid var(--rule2); padding:5px 2px; cursor:pointer; transition:all .15s; }
 .vbtn:first-child { border-radius:2px 0 0 2px; }
 .vbtn:last-child { border-radius:0 2px 2px 0; }
 .vbtn:not(:first-child) { border-left:none; }
@@ -219,9 +220,10 @@ body { font-family:var(--mono); background:var(--white); color:var(--ink); min-h
 .m-overlay { position:fixed; inset:0; z-index:200; background:rgba(17,17,16,.45); backdrop-filter:blur(3px); display:flex; align-items:flex-start; justify-content:flex-end; animation:fadeIn .2s ease; }
 .m-panel { background:var(--white); width:min(560px,100%); height:100vh; overflow-y:auto; border-left:1px solid var(--rule); animation:slideInR .28s cubic-bezier(.22,.68,0,1.1); display:flex; flex-direction:column; }
 .m-panel::-webkit-scrollbar { width:0; }
-.m-img { width:100%; aspect-ratio:3/2; overflow:hidden; position:relative; background:var(--off); }
-.m-img img { width:100%; height:100%; object-fit:cover; display:block; filter:saturate(.85); }
-.m-img-ph { width:100%; aspect-ratio:3/2; background:var(--off); display:flex; align-items:center; justify-content:center; }
+.m-img { width:100%; aspect-ratio:16/9; overflow:hidden; position:relative; background:var(--off); }
+.m-img img { width:100%; height:100%; object-fit:cover; display:block; filter:saturate(.9); transition:filter .3s; }
+.m-img img:hover { filter:saturate(1); }
+.m-img-ph { width:100%; aspect-ratio:16/9; background:var(--off); display:flex; align-items:center; justify-content:center; }
 .m-img-ph span { font-size:.6rem; color:var(--xlight); letter-spacing:.1em; text-transform:uppercase; }
 .m-close-bar { display:flex; align-items:center; justify-content:space-between; padding:12px 20px; border-bottom:1px solid var(--rule); }
 .m-close { font-family:var(--mono); font-size:.6rem; color:var(--mid); background:none; border:none; cursor:pointer; letter-spacing:.06em; transition:color .15s; }
@@ -586,6 +588,11 @@ footer a:hover { color:var(--ink); }
   /* ── Footer ── */
   footer { flex-direction:column; gap:12px; text-align:center; padding:20px; }
   footer .f-links { justify-content:center; }
+
+  /* ── Map view ── */
+  .map-grid { grid-template-columns:1fr !important; }
+  .map-list { max-height:280px !important; }
+  .map-frame { min-height:280px !important; }
 }
 
 /* iOS safe area for notched phones */
@@ -646,6 +653,7 @@ export default function App() {
   const [calDate, setCalDate]       = useState({ year: new Date().getFullYear(), month: new Date().getMonth() });
   const [selDay, setSelDay]         = useState(null);
   const [loading, setLoading]       = useState(true);
+  const [dateFilter, setDateFilter] = useState("todos");
 
   useEffect(() => {
     const handler = () => setPage("status");
@@ -681,7 +689,14 @@ export default function App() {
   const approved = events.filter(e => e.status === "approved");
   const filtered = approved.filter(e => {
     const ms = [e.title, e.location, e.organizer].join(" ").toLowerCase().includes(search.toLowerCase());
-    return ms && (cat === "Todos" || e.category === cat);
+    if (!ms || (cat !== "Todos" && e.category !== cat)) return false;
+    if (dateFilter === "todos") return true;
+    const now = new Date(); now.setHours(0,0,0,0);
+    const ed = new Date(e.date+"T12:00:00");
+    if (dateFilter === "hoy") return ed.toDateString() === now.toDateString();
+    if (dateFilter === "semana") { const wk = new Date(now); wk.setDate(wk.getDate()+7); return ed >= now && ed <= wk; }
+    if (dateFilter === "mes") { return ed.getFullYear()===now.getFullYear() && ed.getMonth()===now.getMonth(); }
+    return true;
   });
   const myEvs  = cu ? events.filter(e => e.submittedBy === cu.id) : [];
   const dayEvs = selDay ? approved.filter(e => e.date === selDay) : [];
@@ -690,7 +705,7 @@ export default function App() {
   const handleSubmit = async (data) => {
     const row = {
       title: data.title, category: data.category,
-      date: data.date, time: data.time,
+      date: data.date, time: data.time, time_end: data.timeEnd || null,
       location: data.location, description: data.description,
       organizer: data.organizer,
       contact_method: data.contactMethod, contact_value: data.contactValue,
@@ -725,6 +740,21 @@ export default function App() {
     await sb(`events?id=eq.${id}`, { method: "DELETE", prefer: "return=minimal" });
     setEvents(ev => ev.filter(e => e.id !== id));
     toast("evento eliminado");
+  };
+
+  // ── Edit event ──
+  const handleEdit = async (id, data) => {
+    const row = {
+      title: data.title, category: data.category,
+      date: data.date, time: data.time, time_end: data.timeEnd || null,
+      location: data.location, description: data.description,
+      organizer: data.organizer,
+      contact_method: data.contactMethod, contact_value: data.contactValue,
+      website: data.website || "", image: data.image || "",
+    };
+    await sb(`events?id=eq.${id}`, { method: "PATCH", body: JSON.stringify(row) });
+    setEvents(ev => ev.map(e => e.id === id ? { ...e, ...data } : e));
+    toast("evento actualizado");
   };
 
   // ── Save banner ──
@@ -807,6 +837,7 @@ export default function App() {
         <div className="home-grid">
           <Sidebar search={search} setSearch={setSearch} cat={cat} setCat={setCat}
             view={view} setView={setView} banSub={banSub}
+            dateFilter={dateFilter} setDateFilter={setDateFilter}
             setBanSub={val => handleBanner(val)} cu={cu} />
           <div className="main">
             <div className="main-hdr">
@@ -828,6 +859,7 @@ export default function App() {
                 {selDay && <DayPanel day={selDay} events={dayEvs} onClose={() => setSelDay(null)} onClick={setSelEv} />}
               </>
             )}
+
           </div>
         </div>
       )}
@@ -851,7 +883,8 @@ export default function App() {
           <AdminPanel events={events} users={users} tab={adminTab} setTab={setAdminTab}
             onApprove={handleApprove}
             onDeny={handleDeny}
-            onDelete={handleDelete} />
+            onDelete={handleDelete}
+            onEdit={handleEdit} />
         </div>
       )}
 
@@ -1005,7 +1038,7 @@ function Hdr({ cu, page, setPage, pendingCount, onLogin, onLogout, onAdd }) {
 }
 
 // ─── SIDEBAR ──────────────────────────────────────────────────────────────────
-function Sidebar({ search, setSearch, cat, setCat, view, setView, banSub, setBanSub, cu }) {
+function Sidebar({ search, setSearch, cat, setCat, view, setView, banSub, setBanSub, cu, dateFilter, setDateFilter }) {
   const [editDesc, setEditDesc] = useState(false);
   const [tmp, setTmp] = useState(banSub);
   return (
@@ -1019,10 +1052,16 @@ function Sidebar({ search, setSearch, cat, setCat, view, setView, banSub, setBan
       <div className="sb-section">
         <span className="sb-label">vista</span>
         <div className="view-row">
-          {[["list","lista"],["grid","cuadrícula"],["calendar","calendario"]].map(([k,l]) => (
+          {[["list","lista"],["grid","cuadríc."],["calendar","cal."]].map(([k,l]) => (
             <button key={k} className={`vbtn ${view===k?"on":""}`} onClick={() => setView(k)}>{l}</button>
           ))}
         </div>
+      </div>
+      <div className="sb-section">
+        <span className="sb-label">cuándo</span>
+        {[["todos","todos"],["hoy","hoy"],["semana","esta semana"],["mes","este mes"]].map(([k,l]) => (
+          <button key={k} className={`sb-item ${dateFilter===k?"on":""}`} onClick={() => setDateFilter(k)}>{l}</button>
+        ))}
       </div>
       <div className="sb-section">
         <span className="sb-label">categoría</span>
@@ -1076,7 +1115,7 @@ function UpcomingList({ events, onClick }) {
                   <div className="up-day-w">{DAYS_ES_SHORT[d.getDay()]}</div>
                 </div>
                 <div className="up-info">
-                  <div className="up-time">{ev.time}</div>
+                  <div className="up-time">{ev.time}{ev.timeEnd ? ` — ${ev.timeEnd}` : ""}</div>
                   <div className="up-ttl">{ev.title}</div>
                   <a className="up-loc" href={`https://maps.google.com/?q=${encodeURIComponent(ev.location)}`} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()}>{ev.location}</a>
                 </div>
@@ -1185,9 +1224,26 @@ function DayPanel({ day, events, onClose, onClick }) {
 
 // ─── EVENT DETAIL ─────────────────────────────────────────────────────────────
 function EventDetail({ ev, onClose, cu, onLogin, onJoin }) {
+  const [copied, setCopied] = useState(false);
   const contactHref = ev.contactMethod === "whatsapp"
     ? `https://wa.me/${ev.contactValue.replace(/\D/g,"")}`
     : `mailto:${ev.contactValue}`;
+
+  const shareUrl = window.location.href;
+  const shareText = `${ev.title} — ${ev.date} · ${ev.location}`;
+
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({ title: ev.title, text: shareText, url: shareUrl });
+    } else {
+      navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const timeLabel = ev.timeEnd ? `${ev.time} – ${ev.timeEnd}` : ev.time;
+
   return (
     <div className="m-overlay" onClick={onClose}>
       <div className="m-panel fade" onClick={e=>e.stopPropagation()}>
@@ -1195,14 +1251,17 @@ function EventDetail({ ev, onClose, cu, onLogin, onJoin }) {
                   : <div className="m-img-ph"><span>{ev.category}</span></div>}
         <div className="m-close-bar">
           <span className="m-cat-lbl">{ev.category.toLowerCase()}</span>
-          <button className="m-close" onClick={onClose}>✕ cerrar</button>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <button className="m-close" onClick={handleShare}>{copied ? "✓ copiado" : "↗ compartir"}</button>
+            <button className="m-close" onClick={onClose}>✕ cerrar</button>
+          </div>
         </div>
         <div className="m-body">
           <div className="m-title">{ev.title}</div>
           <div className="m-meta">
             {[
               ["fecha",    fmt(ev.date), null],
-              ["hora",     ev.time, null],
+              ["hora",     timeLabel, null],
               ["lugar",    ev.location, `https://maps.google.com/?q=${encodeURIComponent(ev.location)}`],
               ["organiz.", ev.organizer, null],
             ].map(([l,v,href]) => (
@@ -1230,6 +1289,9 @@ function EventDetail({ ev, onClose, cu, onLogin, onJoin }) {
                   <button className="m-btn-s" onClick={onLogin}>crear cuenta</button>
                 </>
             }
+            <button className="m-btn-s" onClick={handleShare}>
+              {copied ? "✓ enlace copiado" : "compartir evento ↗"}
+            </button>
           </div>
         </div>
       </div>
@@ -1244,7 +1306,7 @@ function SubmitPage({ cu, onBack, onSubmit }) {
   const [refNum] = useState(() => "ET-" + Math.floor(Math.random()*90000+10000));
   const [err, setErr] = useState("");
   const [f, setF] = useState({
-    title:"", category:"Medio Ambiente", date:"", time:"10:00",
+    title:"", category:"Medio Ambiente", date:"", time:"10:00", timeEnd:"", timeEnd:"",
     location:"", description:"",
     organizer:     cu?.organizer    || "",
     contactMethod: cu?.contactMethod || "email",
@@ -1346,6 +1408,18 @@ function SubmitPage({ cu, onBack, onSubmit }) {
             <div className="sf-field">
               <label>hora de inicio</label>
               <input type="time" value={f.time} onChange={e=>sf("time",e.target.value)}/>
+            </div>
+          </div>
+          <div className="sf-grid2">
+            <div className="sf-field">
+              <label>hora de fin</label>
+              <input type="time" value={f.timeEnd} onChange={e=>sf("timeEnd",e.target.value)}/>
+            </div>
+          </div>
+          <div className="sf-grid2">
+            <div className="sf-field">
+              <label>hora de fin</label>
+              <input type="time" value={f.timeEnd} onChange={e=>sf("timeEnd",e.target.value)}/>
             </div>
           </div>
           <div className="sf-field">
@@ -1509,7 +1583,7 @@ function AuthModal({ tab, setTab, users, onClose, onLogin, onReg }) {
   );
 }
 
-// ─── STATUS CHECKER ───────────────────────────────────────────────────────────
+// ─── STATUS PAGE ──────────────────────────────────────────────────────────────
 function StatusPage({ events, onBack }) {
   const [ref, setRef] = useState("");
   const [result, setResult] = useState(null);
@@ -1582,9 +1656,60 @@ function StatusPage({ events, onBack }) {
   );
 }
 
+// ─── EDIT EVENT FORM ──────────────────────────────────────────────────────────
+function EditEventForm({ ev, onSave, onCancel }) {
+  const [f, setF] = useState({
+    title: ev.title, category: ev.category,
+    date: ev.date, time: ev.time, timeEnd: ev.timeEnd || "",
+    location: ev.location, description: ev.description,
+    organizer: ev.organizer, contactMethod: ev.contactMethod,
+    contactValue: ev.contactValue, website: ev.website || "",
+    image: ev.image || "",
+  });
+  const sf = (k,v) => setF(x=>({...x,[k]:v}));
+  return (
+    <div style={{maxWidth:700,margin:"0 auto",padding:"40px 32px"}}>
+      <div className="page-title">editar evento</div>
+      <div style={{fontFamily:"var(--serif)",fontSize:"1rem",fontStyle:"italic",color:"var(--mid)",marginBottom:24}}>{ev.title}</div>
+      <div className="sf-grid2">
+        <div className="sf-field"><label>título</label><input value={f.title} onChange={e=>sf("title",e.target.value)}/></div>
+        <div className="sf-field"><label>categoría</label>
+          <select value={f.category} onChange={e=>sf("category",e.target.value)}>
+            {CATEGORIES.filter(c=>c!=="Todos").map(c=><option key={c}>{c}</option>)}
+          </select>
+        </div>
+      </div>
+      <div className="sf-grid2">
+        <div className="sf-field"><label>fecha</label><input type="date" value={f.date} onChange={e=>sf("date",e.target.value)}/></div>
+        <div className="sf-field"><label>hora inicio</label><input type="time" value={f.time} onChange={e=>sf("time",e.target.value)}/></div>
+      </div>
+      <div className="sf-grid2">
+        <div className="sf-field"><label>hora fin</label><input type="time" value={f.timeEnd} onChange={e=>sf("timeEnd",e.target.value)}/></div>
+      </div>
+      <div className="sf-field"><label>lugar</label><input value={f.location} onChange={e=>sf("location",e.target.value)}/></div>
+      <div className="sf-field"><label>organización</label><input value={f.organizer} onChange={e=>sf("organizer",e.target.value)}/></div>
+      <div className="sf-field"><label>descripción</label><textarea value={f.description} onChange={e=>sf("description",e.target.value)} style={{minHeight:100}}/></div>
+      <div className="sf-grid2">
+        <div className="sf-field"><label>contacto ({f.contactMethod})</label><input value={f.contactValue} onChange={e=>sf("contactValue",e.target.value)}/></div>
+        <div className="sf-field"><label>web</label><input value={f.website} onChange={e=>sf("website",e.target.value)}/></div>
+      </div>
+      <div className="sf-field"><label>imagen (url)</label><input value={f.image.startsWith("data:")?"":f.image} onChange={e=>sf("image",e.target.value)} placeholder="https://..."/></div>
+      <div style={{display:"flex",gap:10,marginTop:24}}>
+        <button className="btn-ink" onClick={()=>onSave(f)}>guardar cambios →</button>
+        <button className="btn-line" onClick={onCancel}>cancelar</button>
+      </div>
+    </div>
+  );
+}
+
 // ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
-function AdminPanel({ events, users, tab, setTab, onApprove, onDeny, onDelete }) {
+function AdminPanel({ events, users, tab, setTab, onApprove, onDeny, onDelete, onEdit }) {
+  const [editEv, setEditEv] = useState(null);
   const pending = events.filter(e=>e.status==="pending");
+
+  if (editEv) return (
+    <EditEventForm ev={editEv} onSave={data => { onEdit(editEv.id, data); setEditEv(null); }} onCancel={() => setEditEv(null)} />
+  );
   return (
     <div>
       <div className="page-title">administración</div>
@@ -1619,6 +1744,7 @@ function AdminPanel({ events, users, tab, setTab, onApprove, onDeny, onDelete })
                 <div className="a-acts">
                   <button className="btn-sm ok" onClick={()=>onApprove(e.id)}>aprobar</button>
                   <button className="btn-sm danger" onClick={()=>onDeny(e.id)}>rechazar</button>
+                  <button className="btn-sm" onClick={()=>setEditEv(e)}>editar</button>
                   <span style={{fontSize:".58rem",color:"var(--xlight)",marginLeft:4}}>ref. anon</span>
                 </div>
               </div>
@@ -1639,6 +1765,7 @@ function AdminPanel({ events, users, tab, setTab, onApprove, onDeny, onDelete })
             <div className="a-acts">
               <span className={`sbdg ${e.status}`}>{e.status==="approved"?"publicado":e.status==="pending"?"pendiente":"rechazado"}</span>
               {e.status==="pending"&&<><button className="btn-sm ok" onClick={()=>onApprove(e.id)}>aprobar</button><button className="btn-sm danger" onClick={()=>onDeny(e.id)}>rechazar</button></>}
+              <button className="btn-sm" onClick={()=>setEditEv(e)}>editar</button>
               <button className="btn-sm danger" onClick={()=>onDelete(e.id)} style={{marginLeft:"auto"}}>eliminar</button>
             </div>
           </div>
