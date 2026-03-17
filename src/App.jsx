@@ -649,7 +649,7 @@ export default function App() {
   const [cat, setCat]               = useState("Todos");
   const [adminTab, setAdminTab]     = useState("pending");
   const [toasts, setToasts]         = useState([]);
-  const [banSub, setBanSub]         = useState("Voluntariado en Madrid — encuentra tu próxima oportunidad de hacer el bien en la ciudad.");
+  const [banSub, setBanSub]         = useState("Voluntariado que se adapta a tu vida. Eventos de voluntariado de un día, accesibles y abiertos a todos en Madrid.");
   const [calDate, setCalDate]       = useState({ year: new Date().getFullYear(), month: new Date().getMonth() });
   const [selDay, setSelDay]         = useState(null);
   const [loading, setLoading]       = useState(true);
@@ -917,7 +917,7 @@ export default function App() {
       <div className="toast-area">{toasts.map(t => <div key={t.id} className={`toast ${t.type}`}>{t.msg}</div>)}</div>
 
       <footer>
-        <span className="f-name">El Tablón / Voluntariado Madrid</span>
+        <span className="f-name">El Tablón / Voluntariado que se adapta a tu vida</span>
         <div className="f-links">
           <a href="mailto:hola@eltablon.org">contacto · hola@eltablon.org</a>
           <a href="#">privacidad</a>
@@ -1357,7 +1357,7 @@ function SubmitPage({ cu, onBack, onSubmit }) {
       <div className="submit-info">
         <div className="submit-info-title">Propón un evento de voluntariado</div>
         <div className="submit-info-body">
-          ¿Organizas una actividad de voluntariado en Madrid? Envíanos los detalles y lo publicaremos en El Tablón tras revisarlo.
+          ¿Organizas un evento de voluntariado en Madrid? El Tablón publica actividades de un día — pueden ser puntuales o recurrentes, siempre que cada sesión sea independiente.
         </div>
         <div className="submit-info-steps">
           {[
@@ -1374,7 +1374,7 @@ function SubmitPage({ cu, onBack, onSubmit }) {
         <div className="submit-note">
           <div className="submit-note-lbl">nota</div>
           <div className="submit-note-txt">
-            La publicación es gratuita. El Tablón se reserva el derecho de rechazar propuestas que no cumplan con los criterios editoriales.
+            La publicación es gratuita. Publicamos eventos de un día que buscan aumentar la accesibilidad del voluntariado en Madrid.
           </div>
         </div>
         <div style={{marginTop:20}}>
@@ -1534,7 +1534,7 @@ function AuthModal({ tab, setTab, users, onClose, onLogin, onReg }) {
         <div className="m-body">
           <div style={{textAlign:"center",marginBottom:20}}><Badge size={48}/></div>
           <div className="form-title" style={{textAlign:"center"}}>El Tablón</div>
-          <div className="form-sub" style={{textAlign:"center",marginBottom:24}}>voluntariado en madrid</div>
+          <div className="form-sub" style={{textAlign:"center",marginBottom:24}}>voluntariado accesible en madrid</div>
           <div className="auth-tabs">
             <button className={`atab ${tab==="login"?"on":""}`} onClick={()=>{setTab("login");setErr("");}}>entrar</button>
             <button className={`atab ${tab==="register"?"on":""}`} onClick={()=>{setTab("register");setErr("");}}>registrarse</button>
