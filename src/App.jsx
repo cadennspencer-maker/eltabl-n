@@ -15,6 +15,18 @@ const sendNotification = async (data, ref) => {
   }
 };
 
+const sendConfirmationEmail = async (data, ref) => {
+  try {
+    await fetch("/api/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...data, submissionRef: ref }),
+    });
+  } catch(e) {
+    console.error("Confirm error:", e);
+  }
+};
+
 // ─── SUPABASE HELPERS ─────────────────────────────────────────────────────────
 const sb = async (path, opts = {}) => {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -649,7 +661,7 @@ export default function App() {
   const [cat, setCat]               = useState("Todos");
   const [adminTab, setAdminTab]     = useState("pending");
   const [toasts, setToasts]         = useState([]);
-  const [banSub, setBanSub]         = useState("Voluntariado que se adapta a tu vida. Eventos de voluntariado de un día, accesibles y abiertos a todos en Madrid.");
+  const [banSub, setBanSub]         = useState("Voluntariado accesible en Madrid. Eventos de un día, abiertos a todos, sin compromisos a largo plazo.");
   const [calDate, setCalDate]       = useState({ year: new Date().getFullYear(), month: new Date().getMonth() });
   const [selDay, setSelDay]         = useState(null);
   const [loading, setLoading]       = useState(true);
@@ -686,8 +698,10 @@ export default function App() {
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3500);
   };
 
+  const today = new Date(); today.setHours(0,0,0,0);
   const approved = events.filter(e => e.status === "approved");
-  const filtered = approved.filter(e => {
+  const upcoming = approved.filter(e => new Date(e.date+"T12:00:00") >= today);
+  const filtered = upcoming.filter(e => {
     const ms = [e.title, e.location, e.organizer].join(" ").toLowerCase().includes(search.toLowerCase());
     if (!ms || (cat !== "Todos" && e.category !== cat)) return false;
     if (dateFilter === "todos") return true;
@@ -718,7 +732,12 @@ export default function App() {
     };
     const result = await sb("events", { method: "POST", body: JSON.stringify(row) });
     if (result && result[0]) setEvents(ev => [...ev, mapEvent(result[0])]);
+    // Notify admin
     await sendNotification(data, data.submissionRef);
+    // Send confirmation to submitter if they provided email
+    if (data.contactMethod === "email" && data.contactValue) {
+      await sendConfirmationEmail(data, data.submissionRef);
+    }
   };
 
   // ── Approve event ──
@@ -841,7 +860,7 @@ export default function App() {
             setBanSub={val => handleBanner(val)} cu={cu} />
           <div className="main">
             <div className="main-hdr">
-              <div className="main-sub">{approved.length} eventos · madrid</div>
+              <div className="main-sub">{upcoming.length} eventos · madrid</div>
             </div>
             <div className="main-desc">{banSub}</div>
             {view === "list" && <UpcomingList events={filtered} onClick={setSelEv} />}
@@ -937,7 +956,6 @@ function Hdr({ cu, page, setPage, pendingCount, onLogin, onLogout, onAdd }) {
   const navItems = [
     { key:"home",       label:"eventos",          icon:"◈" },
     { key:"newsletter", label:"boletín",           icon:"◉" },
-    { key:"status",     label:"estado propuesta",  icon:"◎" },
     ...(cu ? [{ key:"my-events", label:"mis eventos", icon:"◎" }] : []),
     ...(cu?.role==="admin" ? [{ key:"admin", label:`admin${pendingCount>0?` (${pendingCount})`:""}`, icon:"◆" }] : []),
   ];
@@ -954,7 +972,6 @@ function Hdr({ cu, page, setPage, pendingCount, onLogin, onLogout, onAdd }) {
           <nav className="hdr-nav">
             <button className={`hn ${page==="home"?"act":""}`} onClick={() => setPage("home")}>eventos</button>
             <button className={`hn ${page==="newsletter"?"act":""}`} onClick={() => setPage("newsletter")}>boletín</button>
-            <button className={`hn ${page==="status"?"act":""}`} onClick={() => setPage("status")}>estado</button>
             {cu && <button className={`hn ${page==="my-events"?"act":""}`} onClick={() => setPage("my-events")}>mis eventos</button>}
             {cu?.role==="admin" && (
               <button className={`hn ${page==="admin"?"act":""}`} onClick={() => setPage("admin")}>
@@ -1306,7 +1323,7 @@ function SubmitPage({ cu, onBack, onSubmit }) {
   const [refNum] = useState(() => "ET-" + Math.floor(Math.random()*90000+10000));
   const [err, setErr] = useState("");
   const [f, setF] = useState({
-    title:"", category:"Medio Ambiente", date:"", time:"10:00", timeEnd:"", timeEnd:"",
+    title:"", category:"Medio Ambiente", date:"", time:"10:00", timeEnd:"",
     location:"", description:"",
     organizer:     cu?.organizer    || "",
     contactMethod: cu?.contactMethod || "email",
@@ -1408,12 +1425,6 @@ function SubmitPage({ cu, onBack, onSubmit }) {
             <div className="sf-field">
               <label>hora de inicio</label>
               <input type="time" value={f.time} onChange={e=>sf("time",e.target.value)}/>
-            </div>
-          </div>
-          <div className="sf-grid2">
-            <div className="sf-field">
-              <label>hora de fin</label>
-              <input type="time" value={f.timeEnd} onChange={e=>sf("timeEnd",e.target.value)}/>
             </div>
           </div>
           <div className="sf-grid2">
@@ -1745,7 +1756,13 @@ function AdminPanel({ events, users, tab, setTab, onApprove, onDeny, onDelete, o
                   <button className="btn-sm ok" onClick={()=>onApprove(e.id)}>aprobar</button>
                   <button className="btn-sm danger" onClick={()=>onDeny(e.id)}>rechazar</button>
                   <button className="btn-sm" onClick={()=>setEditEv(e)}>editar</button>
-                  <span style={{fontSize:".58rem",color:"var(--xlight)",marginLeft:4}}>ref. anon</span>
+                  {e.contactMethod === "whatsapp" && (
+                    <a className="btn-sm" href={`https://wa.me/${(e.contactValue||"").replace(/\D/g,"")}?text=${encodeURIComponent(`Hola, soy el equipo de El Tablón 👋\n\nHemos recibido tu propuesta *${e.title}* y la estamos revisando. Te contactaremos en los próximos días con una respuesta.\n\nTu número de referencia es: *${e.submissionRef||"—"}*\n\nGracias por contribuir al voluntariado en Madrid 🙌`)}`}
+                      target="_blank" rel="noopener noreferrer" style={{textDecoration:"none"}}>
+                      💬 whatsapp
+                    </a>
+                  )}
+                  <span style={{fontSize:".58rem",color:"var(--xlight)",marginLeft:4}}>ref. {e.submissionRef||"anon"}</span>
                 </div>
               </div>
             </div>
