@@ -124,8 +124,8 @@ body { font-family:var(--mono); background:var(--white); color:var(--ink); min-h
 /* SIDEBAR */
 .sidebar { border-right:1px solid var(--rule); padding:32px 0; position:sticky; top:62px; height:calc(100vh - 62px); overflow-y:auto; }
 .sidebar::-webkit-scrollbar { width:0; }
-.sb-section { border-bottom:1px solid var(--rule2); padding:0 0 20px; margin-bottom:20px; }
-.sb-section:last-child { border-bottom:none; }
+.sb-section { padding:0 0 12px; margin-bottom:4px; }
+.sb-section:last-child { padding-bottom:0; }
 .sb-label { font-size:.58rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--light); padding:0 20px; margin-bottom:10px; display:block; }
 .sb-item { display:block; width:100%; text-align:left; font-family:var(--mono); font-size:.66rem; color:var(--mid); padding:6px 20px; background:none; border:none; cursor:pointer; transition:all .15s; letter-spacing:.02em; }
 .sb-item:hover { color:var(--ink); background:var(--off); }
@@ -661,7 +661,7 @@ export default function App() {
   const [cat, setCat]               = useState("Todos");
   const [adminTab, setAdminTab]     = useState("pending");
   const [toasts, setToasts]         = useState([]);
-  const [banSub, setBanSub]         = useState("Voluntariado accesible en Madrid. Eventos de un día, abiertos a todos, sin compromisos a largo plazo.");
+  const [banSub, setBanSub]         = useState("Encuentra tu próxima oportunidad de hacer el bien en Madrid.");
   const [calDate, setCalDate]       = useState({ year: new Date().getFullYear(), month: new Date().getMonth() });
   const [selDay, setSelDay]         = useState(null);
   const [loading, setLoading]       = useState(true);
